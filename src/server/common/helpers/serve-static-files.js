@@ -1,3 +1,4 @@
+import { readFile } from 'fs/promises'
 import { config } from '../../../config/config.js'
 import { statusCodes } from '../constants/status-codes.js'
 
@@ -82,6 +83,17 @@ export const serveStaticFiles = {
               path: '.',
               redirectToSlash: true
             }
+          }
+        },
+        {
+          options: {
+            auth: false
+          },
+          method: 'GET',
+          path: '/bing-search',
+          async handler(_request, h) {
+            const html = await readFile(path.join(projectRoot, 'public/index.html'), 'utf-8')
+            return h.response(html).type('text/html')
           }
         }
       ])

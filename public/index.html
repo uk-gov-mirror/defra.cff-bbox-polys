@@ -97,6 +97,17 @@
     <main class="govuk-main-wrapper" id="main-content">
       <div id="error-summary-container" aria-live="polite"></div>
 
+      <div class="govuk-breadcrumbs">
+        <ol class="govuk-breadcrumbs__list">
+          <li class="govuk-breadcrumbs__list-item">
+            <a class="govuk-breadcrumbs__link" href="/">Home</a>
+          </li>
+          <li class="govuk-breadcrumbs__list-item">
+            Bing Maps Location Search
+          </li>
+        </ol>
+      </div>
+
       <h1 class="govuk-heading-xl">Bing Maps Location Search</h1>
       <div class="govuk-grid-row">
         <div class="govuk-grid-column-two-thirds">
@@ -179,7 +190,14 @@
   
   <script type="module">
     /* Inline JavaScript from app.js */
-    import { setBingResponseOnElement } from '/src/client/javascripts/bing-response.js'
+    function stringifyBingResponse(payload) {
+      return payload ? JSON.stringify(payload, null, 2) : ''
+    }
+
+    function setBingResponseOnElement(responseElement, payload) {
+      if (!responseElement) return
+      responseElement.value = stringifyBingResponse(payload)
+    }
 
     let map, bboxShape, polygonShape;
 

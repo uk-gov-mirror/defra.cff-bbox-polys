@@ -1,0 +1,199 @@
+{% extends 'layouts/page.njk' %}
+
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" type="text/css" />
+  <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/drawing/1/atlas-drawing.min.css" type="text/css" />
+  <style>
+    .colour-swatch {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin: 4px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .colour-swatch:hover, .colour-swatch.selected {
+      border-color: #0b0c0c;
+    }
+    .colour-swatch__block {
+      width: 40px;
+      height: 40px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.2);
+    }
+    .colour-swatch__name {
+      font-size: 12px;
+      color: #0b0c0c;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading,
+    caption: "Azure Map"
+  }) }}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+      <div id="azure-map" style="width: 100%; height: 600px;"></div>
+    </div>
+  </div>
+
+  <div id="colour-panel" class="govuk-grid-row govuk-!-margin-top-4" style="display:none">
+    <div class="govuk-grid-column-full">
+      <h2 class="govuk-heading-s">Choose a colour for the selected polygon</h2>
+      <div id="colour-swatches"></div>
+      <span style="display:inline-flex; flex-direction:column; align-items:center; gap:4px; margin:4px; vertical-align:top;">
+        <span class="colour-swatch__name">Custom</span>
+        <input id="custom-colour" type="color" value="#000000"
+          style="width:40px; height:40px; padding:2px; border:1px solid rgba(0,0,0,0.2); border-radius:3px; cursor:pointer;" />
+      </span>
+    </div>
+  </div>
+
+  <div class="govuk-grid-row govuk-!-margin-top-4">
+    <div class="govuk-grid-column-full">
+      <h2 class="govuk-heading-s">Drawn polygons</h2>
+      <pre id="polygon-output" class="govuk-body" style="background:#f3f2f1; padding:1rem; min-height:3rem; white-space:pre-wrap; word-break:break-all;">None</pre>
+    </div>
+  </div>
+{% endblock %}
+
+{% block bodyEnd %}
+  <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+  <script src="https://atlas.microsoft.com/sdk/javascript/drawing/1/atlas-drawing.min.js"></script>
+  {{ super() }}
+  <script>
+    var COLOURS = [
+      { name: 'Red',    hex: '#d4351c' },
+      { name: 'Blue',   hex: '#1d70b8' },
+      { name: 'Green',  hex: '#00703c' },
+      { name: 'Orange', hex: '#f47738' },
+      { name: 'Purple', hex: '#4c2c92' },
+      { name: 'Yellow', hex: '#ffdd00' },
+      { name: 'Pink',   hex: '#d53880' },
+      { name: 'Teal',   hex: '#28a197' },
+      { name: 'Brown',  hex: '#b58840' },
+      { name: 'Grey',   hex: '#505a5f' }
+    ]
+
+    // Build colour swatches
+    var swatchContainer = document.getElementById('colour-swatches')
+    COLOURS.forEach(function (colour) {
+      var swatch = document.createElement('span')
+      swatch.className = 'colour-swatch'
+      swatch.dataset.hex = colour.hex
+      swatch.dataset.name = colour.name
+      swatch.innerHTML =
+        '<span class="colour-swatch__block" style="background:' + colour.hex + '"></span>' +
+        '<span class="colour-swatch__name">' + colour.name + '</span>'
+      swatchContainer.appendChild(swatch)
+    })
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var map = new atlas.Map('azure-map', {
+        center: [-1.5, 53.0],
+        zoom: 6,
+        language: 'en-GB',
+        style: 'road',
+        authOptions: {
+          authType: 'subscriptionKey',
+          subscriptionKey: '{{ azureMapsKey }}'
+        }
+      })
+
+      map.events.add('ready', function () {
+        // Custom datasource and layers for completed, coloured polygons
+        var datasource = new atlas.source.DataSource()
+        map.sources.add(datasource)
+
+        map.layers.add(new atlas.layer.PolygonLayer(datasource, null, {
+          fillColor: ['get', 'fillColor'],
+          fillOpacity: 0.4
+        }), 'labels')
+
+        map.layers.add(new atlas.layer.LineLayer(datasource, null, {
+          strokeColor: ['get', 'fillColor'],
+          strokeWidth: 2
+        }), 'labels')
+
+        var drawingManager = new atlas.drawing.DrawingManager(map, {
+          toolbar: new atlas.control.DrawingToolbar({
+            position: 'top-right',
+            style: 'light',
+            buttons: ['draw-polygon', 'edit-geometry', 'erase-geometry']
+          })
+        })
+
+        var activeShape = null
+        var DEFAULT_COLOUR = COLOURS[0]
+
+        map.events.add('drawingcomplete', drawingManager, function (shape) {
+          // Move completed shape into the custom datasource with a default colour
+          var geojson = shape.toJson()
+          geojson.properties = geojson.properties || {}
+          geojson.properties.fillColor = DEFAULT_COLOUR.hex
+          geojson.properties.colourName = DEFAULT_COLOUR.name
+
+          activeShape = new atlas.Shape(geojson)
+          datasource.add(activeShape)
+
+          // Remove from drawing manager's internal source
+          drawingManager.getSource().remove(shape)
+
+          updateOutput()
+          showColourPanel(DEFAULT_COLOUR.hex)
+        })
+
+        function applyColour(hex, name) {
+          if (!activeShape) return
+          activeShape.addProperty('fillColor', hex)
+          activeShape.addProperty('colourName', name)
+          updateOutput()
+        }
+
+        // Colour swatch click handler
+        swatchContainer.addEventListener('click', function (e) {
+          var swatch = e.target.closest('.colour-swatch')
+          if (!swatch || !activeShape) return
+
+          applyColour(swatch.dataset.hex, swatch.dataset.name)
+          document.getElementById('custom-colour').value = swatch.dataset.hex
+
+          document.querySelectorAll('.colour-swatch').forEach(function (s) {
+            s.classList.remove('selected')
+          })
+          swatch.classList.add('selected')
+        })
+
+        // Custom colour picker handler
+        document.getElementById('custom-colour').addEventListener('input', function () {
+          if (!activeShape) return
+          document.querySelectorAll('.colour-swatch').forEach(function (s) {
+            s.classList.remove('selected')
+          })
+          applyColour(this.value, this.value)
+        })
+
+        function showColourPanel(selectedHex) {
+          document.getElementById('colour-panel').style.display = ''
+          document.querySelectorAll('.colour-swatch').forEach(function (s) {
+            s.classList.toggle('selected', s.dataset.hex === selectedHex)
+          })
+        }
+
+        function updateOutput() {
+          var shapes = datasource.getShapes()
+          var features = shapes.map(function (s) { return s.toJson() })
+          document.getElementById('polygon-output').textContent =
+            JSON.stringify({ type: 'FeatureCollection', features: features }, null, 2)
+        }
+      })
+    })
+  </script>
+{% endblock %}

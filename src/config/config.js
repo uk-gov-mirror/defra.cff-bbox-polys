@@ -219,6 +219,18 @@ export const config = convict({
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
     }
+  },
+  azureMapsKey: {
+    doc: 'Azure Maps subscription key',
+    format: String,
+    default: '',
+    env: 'FLOOD_APP_AZURE_MAPS_KEY'
+  },
+  azureMapsUrl: {
+    doc: 'Azure Maps SDK base URL',
+    format: String,
+    default: 'https://atlas.microsoft.com',
+    env: 'FLOOD_APP_AZURE_MAPS_URL'
   }
 })
 

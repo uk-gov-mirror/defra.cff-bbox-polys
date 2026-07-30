@@ -9,7 +9,7 @@ const contentSecurityPolicy = {
   options: {
     // Note: Removed SHA hash to allow 'unsafe-inline' for Bing Maps integration
     defaultSrc: ['self'],
-    fontSrc: ['self', 'data:', 'blob:'],
+    fontSrc: ['self', 'data:', 'blob:', 'https:'],
     connectSrc: ['self', 'wss', 'data:', 'blob:', 'https:', 'http:'],
     mediaSrc: ['self'],
     styleSrc: ['self', "'unsafe-inline'", 'https:', 'blob:', 'data:'],
@@ -27,6 +27,7 @@ const contentSecurityPolicy = {
     frameAncestors: ['none'],
     formAction: ['self'],
     manifestSrc: ['self'],
+    workerSrc: ['self', 'blob:'],
     generateNonces: false
   }
 }
