@@ -92,7 +92,10 @@ export const serveStaticFiles = {
           method: 'GET',
           path: '/bing-search',
           async handler(_request, h) {
-            const html = await readFile(path.join(projectRoot, 'public/index.html'), 'utf-8')
+            const html = await readFile(
+              path.join(projectRoot, 'public/index.html'),
+              'utf-8'
+            )
             return h.response(html).type('text/html')
           }
         }
